@@ -1,0 +1,49 @@
+{
+  "active_company_id": "83044709-32d7-40c5-9e3c-751214b676b4",
+  "companies": [
+    {
+      "id": "83044709-32d7-40c5-9e3c-751214b676b4",
+      "name": "Alpha Ventures",
+      "role": "Investor",
+      "kb_namespaces": [
+        "profile",
+        "knowledge",
+        "strategy",
+        "financials"
+      ]
+    },
+    {
+      "id": "cf5a929b-e0be-4938-8070-2f3c0a8e8ccc",
+      "name": "BetaCore",
+      "role": "CEO",
+      "kb_namespaces": [
+        "profile",
+        "knowledge",
+        "strategy",
+        "financials"
+      ]
+    },
+    {
+      "id": "371d9f4a-da43-41cc-a29a-b86bde5b553b",
+      "name": "Gamma Retail",
+      "role": "Founder",
+      "kb_namespaces": [
+        "profile",
+        "knowledge",
+        "strategy",
+        "financials"
+      ]
+    },
+    {
+      "id": "ebdfa344-8196-4adf-983b-4f3d0c3e8422",
+      "name": "Delta Infra",
+      "role": "Board Member",
+      "kb_namespaces": [
+        "profile",
+        "knowledge",
+        "strategy",
+        "financials"
+      ]
+    }
+  ]
+}
