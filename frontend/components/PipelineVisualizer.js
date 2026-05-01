@@ -1,13 +1,4 @@
-/**
- * PipelineVisualizer — 4-state pipeline stage tracker.
- *
- * Stage states:
- *   "pending"  → grey, not yet started
- *   "active"   → pulsing blue glow
- *   "complete" → green ✓
- *   "failed"   → red ✗ with inline error message
- */
-
+// ── PipelineVisualizer.js — Cinematic Ops Center ─────────────────────────────
 export const STAGES = ["input", "rag", "context_inject", "llm_stream", "verdict", "pnl"];
 
 const STAGE_LABELS = {
@@ -19,113 +10,47 @@ const STAGE_LABELS = {
   pnl:            "P&L Score",
 };
 
-/**
- * Create a fresh stage-state map with all stages pending.
- */
+const ICONS = {
+  circle: `<svg class="icon-lucide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>`,
+  loader: `<svg class="icon-lucide" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"/></svg>`,
+  check: `<svg class="icon-lucide" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  error: `<svg class="icon-lucide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`
+};
+
 export function createStageStates() {
   return Object.fromEntries(STAGES.map((s) => [s, { state: "pending", error: null }]));
 }
 
-/**
- * Advance a stage state and return a new map (immutable-style).
- * @param {Object} current  - current stageStates map
- * @param {string} stage    - stage name
- * @param {"active"|"complete"|"failed"} newState
- * @param {string|null} errorMsg
- */
 export function updateStageState(current, stage, newState, errorMsg = null) {
-  return {
-    ...current,
-    [stage]: { state: newState, error: errorMsg },
-  };
+  return { ...current, [stage]: { state: newState, error: errorMsg } };
 }
 
-/**
- * Derive overall pipeline status from stageStates.
- * @returns {{ status: "idle"|"processing"|"complete"|"failed", failedStage: string|null, failedMsg: string|null }}
- */
-function deriveStatus(stageStates) {
-  for (const s of STAGES) {
-    if (stageStates[s].state === "failed") {
-      return { status: "failed", failedStage: s, failedMsg: stageStates[s].error };
-    }
-  }
-  if (STAGES.every((s) => stageStates[s].state === "complete")) {
-    return { status: "complete", failedStage: null, failedMsg: null };
-  }
-  if (STAGES.some((s) => stageStates[s].state === "active")) {
-    return { status: "processing", failedStage: null, failedMsg: null };
-  }
-  return { status: "idle", failedStage: null, failedMsg: null };
-}
-
-/**
- * Render the full pipeline visualizer into container.
- * @param {HTMLElement} container
- * @param {Object} stageStates   - map from createStageStates / updateStageState
- */
 export function renderPipeline(container, stageStates) {
-  const { status, failedStage, failedMsg } = deriveStatus(stageStates);
+  let html = `<div class="pipeline-track">`;
+  
+  STAGES.forEach((stage) => {
+    const s = stageStates[stage];
+    let stClass = "idle";
+    let icon = ICONS.circle;
+    
+    if (s.state === "active") { stClass = "active"; icon = ICONS.loader; }
+    else if (s.state === "complete") { stClass = "done"; icon = ICONS.check; }
+    else if (s.state === "failed") { stClass = "error"; icon = ICONS.error; }
 
-  const stagesCompleted = STAGES.filter((s) => stageStates[s].state === "complete");
-
-  // ── Status banner ─────────────────────────────────────────────────────
-  const bannerClass =
-    status === "complete"   ? "pipeline-banner complete" :
-    status === "failed"     ? "pipeline-banner failed"   :
-    status === "processing" ? "pipeline-banner processing" :
-                              "pipeline-banner idle";
-
-  const bannerText =
-    status === "complete"   ? "✓ Complete" :
-    status === "failed"     ? `✗ Failed at [${STAGE_LABELS[failedStage] ?? failedStage}]: ${failedMsg}` :
-    status === "processing" ? "⟳ Processing…" :
-                              "Ready";
-
-  // ── Copy Error Report button ──────────────────────────────────────────
-  const showCopyBtn = status === "failed";
-  const errorReport = showCopyBtn
-    ? JSON.stringify({
-        failed_stage:      failedStage,
-        error_message:     failedMsg,
-        stages_completed:  stagesCompleted,
-        timestamp:         new Date().toISOString(),
-      }, null, 2)
-    : null;
-
-  // ── Stage rows ────────────────────────────────────────────────────────
-  const stageRows = STAGES.map((stage) => {
-    const { state, error } = stageStates[stage];
-    const icon =
-      state === "complete" ? "✓" :
-      state === "failed"   ? "✗" :
-      state === "active"   ? "◉" : "○";
-
-    const rowClass = `pipeline-step pipeline-step--${state}`;
-    const errorLine = state === "failed" && error
-      ? `<div class="pipeline-error-msg">${error}</div>`
-      : "";
-
-    return `
-      <div class="${rowClass}" data-stage="${stage}">
-        <span class="pipeline-icon">${icon}</span>
-        <span class="pipeline-label">${STAGE_LABELS[stage]}</span>
-        ${errorLine}
-      </div>`;
-  }).join("");
-
-  container.innerHTML = `
-    <div class="${bannerClass}" id="pipelineBanner">${bannerText}</div>
-    <div class="pipeline-stages">${stageRows}</div>
-    ${showCopyBtn ? `<button class="copy-error-btn" id="copyErrorBtn">⎘ Copy Error Report</button>` : ""}
-  `;
-
-  if (showCopyBtn) {
-    container.querySelector("#copyErrorBtn").onclick = () => {
-      navigator.clipboard.writeText(errorReport).then(() => {
-        const btn = container.querySelector("#copyErrorBtn");
-        if (btn) { btn.textContent = "✓ Copied!"; setTimeout(() => { if (btn) btn.textContent = "⎘ Copy Error Report"; }, 1800); }
-      });
-    };
-  }
+    html += `
+      <div class="pipeline-step ${stClass}">
+        <div class="pipeline-step__icon-wrapper">
+          <div class="pipeline-step__icon">${icon}</div>
+        </div>
+        <div class="pipeline-step__box">
+          <div class="pipeline-step__label">${STAGE_LABELS[stage]}</div>
+          ${stClass === "active" ? `<div class="pipeline-step__processing">PROCESSING</div>` : ""}
+          ${stClass === "error" ? `<div class="pipeline-step__processing" style="color:var(--danger)">FAILED: ${s.error}</div>` : ""}
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `</div>`;
+  container.innerHTML = html;
 }

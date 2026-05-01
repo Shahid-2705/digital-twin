@@ -9,19 +9,19 @@ import {
 
 // ── State ──────────────────────────────────────────────────────────────────
 const state = {
-  companies:    [],
+  companies: [],
   activeCompany: null,
-  activeMode:   localStorage.getItem("activeMode") || "advisor_mode",
-  activeStep:   "input",
-  stageStates:  createStageStates(),
-  verdict:      null,
-  pnl:          null,
+  activeMode: localStorage.getItem("activeMode") || "advisor_mode",
+  activeStep: "input",
+  stageStates: createStageStates(),
+  verdict: null,
+  pnl: null,
   latestPayload: {},
 };
 
 const sidebarEl = document.getElementById("sidebar");
-const chatEl    = document.getElementById("chat");
-const rightEl   = document.getElementById("right");
+const chatEl = document.getElementById("chat");
+const rightEl = document.getElementById("right");
 
 // ── Pipeline helpers ───────────────────────────────────────────────────────
 /** Mark a stage and activate the next one — only re-renders the right panel. */
@@ -29,7 +29,7 @@ function advanceStage(completedStage, nextStage = null) {
   state.stageStates = updateStageState(state.stageStates, completedStage, "complete");
   if (nextStage) {
     state.stageStates = updateStageState(state.stageStates, nextStage, "active");
-    state.activeStep  = nextStage;
+    state.activeStep = nextStage;
   }
   renderRightPanel(rightEl, state);
 }
@@ -43,15 +43,15 @@ function resetPipeline() {
   state.stageStates = createStageStates();
   // Mark the first stage active as soon as we send a message
   state.stageStates = updateStageState(state.stageStates, "input", "active");
-  state.activeStep  = "input";
-  state.verdict     = null;
-  state.pnl         = null;
+  state.activeStep = "input";
+  state.verdict = null;
+  state.pnl = null;
   state.latestPayload = {};
 }
 
 // Stage ordering map for "which stage comes next"
 const NEXT_STAGE = Object.fromEntries(
-  STAGES.map((s, i) => [s, STAGES[i + 1] ?? null])
+  STAGES.map((s, i) => [s, STAGES[i + 1] || null])
 );
 
 // ── Mode-change listener ───────────────────────────────────────────────────
@@ -84,9 +84,9 @@ function rerender() {
 }
 
 async function loadCompanies() {
-  const res  = await fetch("/api/companies");
+  const res = await fetch("/api/companies");
   const data = await res.json();
-  state.companies     = data.companies || [];
+  state.companies = data.companies || [];
   state.activeCompany =
     state.companies.find((c) => c.id === data.active_company_id) ||
     state.companies[0] ||
@@ -95,9 +95,9 @@ async function loadCompanies() {
 
 // ── Chat wiring ────────────────────────────────────────────────────────────
 function wireChat() {
-  const input   = document.getElementById("chatInput");
+  const input = document.getElementById("chatInput");
   const sendBtn = document.getElementById("sendBtn");
-  const log     = document.getElementById("chatLog");
+  const log = document.getElementById("chatLog");
   let ws = null;
 
   // Track which stage is currently "active" so error packets know what to fail
@@ -123,13 +123,13 @@ function wireChat() {
         JSON.stringify({
           message,
           company_id: state.activeCompany.id,
-          mode:       state.activeMode,
-          top_k:      5,
+          mode: state.activeMode,
+          top_k: 5,
         })
       );
     };
 
-    let streamed   = "";
+    let streamed = "";
     let streamLine = null;
 
     ws.onmessage = (event) => {
@@ -139,7 +139,7 @@ function wireChat() {
       // ── Error packet ───────────────────────────────────────────────────
       if (packet.type === "error") {
         const errorMsg = packet.message || "Unknown error";
-        const stage    = packet.stage || currentActiveStage;
+        const stage = packet.stage || currentActiveStage;
 
         failStage(stage, errorMsg);
 
@@ -147,22 +147,22 @@ function wireChat() {
           // Show a soft notice in chat; pipeline continues to next stage
           const notice = document.createElement("div");
           notice.className = "chat-error-notice";
-          notice.textContent = `⚠ ${errorMsg} (${stage})`;
+          notice.textContent = `Notice [${stage}]: ${errorMsg}`;
           log.appendChild(notice);
           log.scrollTop = log.scrollHeight;
 
           // Advance past the failed stage so the visualizer doesn't stall
           const next = NEXT_STAGE[stage];
           if (next) {
-            state.stageStates   = updateStageState(state.stageStates, next, "active");
-            currentActiveStage  = next;
-            state.activeStep    = next;
+            state.stageStates = updateStageState(state.stageStates, next, "active");
+            currentActiveStage = next;
+            state.activeStep = next;
           }
         } else {
           // Non-recoverable — show red card; final packet will follow
           const errLine = document.createElement("div");
           errLine.className = "chat-error-fatal";
-          errLine.textContent = `✗ Pipeline error at [${stage}]: ${errorMsg}`;
+          errLine.textContent = `Pipeline error at [${stage}]: ${errorMsg}`;
           log.appendChild(errLine);
           log.scrollTop = log.scrollHeight;
         }
@@ -180,13 +180,25 @@ function wireChat() {
           // llm_stream trickles tokens — mark active on first token, don't complete yet
           if (!streamLine) {
             state.stageStates = updateStageState(state.stageStates, "llm_stream", "active");
+            // Build a proper chat-message bubble matching the new ChatPanel structure
             streamLine = document.createElement("div");
-            streamLine.className = "chat-message ai";
-            streamLine.innerHTML = "<strong>AI:</strong> ";
+            streamLine.className = "chat-message assistant";
+            streamLine.style.display = "flex";
+            streamLine.style.flexDirection = "column";
+            streamLine.style.maxWidth = "85%";
+            streamLine.style.alignSelf = "flex-start";
+            streamLine.style.marginTop = "8px";
+            
+            streamLine.innerHTML = `
+              <div class="chat-message__role" style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; color: var(--accent); text-align: left;">AI ADVISOR</div>
+              <div class="chat-message__body" style="padding: 12px 16px; font-size: 13.5px; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap; color: var(--text-primary); background: rgba(124, 92, 252, 0.08); border: 1px solid rgba(124, 92, 252, 0.2); border-radius: 12px 12px 12px 4px;"></div>
+            `;
             log.appendChild(streamLine);
           }
-          streamed += packet.payload.token;
-          streamLine.innerHTML = `<strong>AI:</strong> ${streamed}`;
+          const token = packet.payload?.token || "";
+          streamed += token;
+          const body = streamLine.querySelector(".chat-message__body");
+          if (body) body.textContent = streamed;
           log.scrollTop = log.scrollHeight;
           renderRightPanel(rightEl, state);
           return;
@@ -200,28 +212,31 @@ function wireChat() {
       // ── Final packet ───────────────────────────────────────────────────
       if (packet.type === "final") {
         if (!packet.ok) {
-          // Mark whichever stage is still active as failed
           failStage(currentActiveStage, packet.error || "Pipeline failed");
 
           const errLine = document.createElement("div");
           errLine.className = "chat-error-fatal";
           errLine.textContent =
-            `✗ Failed at [${packet.stage_failed ?? currentActiveStage}]: ${packet.error ?? "Unknown error"}`;
+            `Failed at [${packet.stage_failed || currentActiveStage}]: ${packet.error || "Unknown error"}`;
           log.appendChild(errLine);
           log.scrollTop = log.scrollHeight;
         } else {
-          // Complete llm_stream + all remaining stages
+          // Complete stages
           state.stageStates = updateStageState(state.stageStates, "llm_stream", "complete");
           state.stageStates = updateStageState(state.stageStates, "verdict", "complete");
           state.stageStates = updateStageState(state.stageStates, "pnl", "complete");
-          state.activeStep  = "pnl";
-          state.verdict     = packet.payload.verdict;
-          state.pnl         = packet.payload.pnl;
+          state.activeStep = "pnl";
+          state.verdict = packet.payload.verdict;
+          state.pnl = packet.payload.pnl;
+
+          const finalText = packet.payload?.content || "";
 
           if (streamLine) {
-            streamLine.innerHTML = `<strong>AI:</strong> ${packet.payload.response}`;
+            // Update the streaming bubble's body with the final content
+            const body = streamLine.querySelector(".chat-message__body");
+            if (body) body.textContent = finalText;
           } else {
-            appendChat(log, "AI", packet.payload.response);
+            appendChat(log, "AI", finalText);
           }
         }
 
@@ -242,5 +257,8 @@ function wireChat() {
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
-await loadCompanies();
-rerender();
+async function boot() {
+  await loadCompanies();
+  rerender();
+}
+boot();
